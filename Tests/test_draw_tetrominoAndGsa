@@ -1,0 +1,582 @@
+  ;; game state memory location
+  .equ T_X, 0x1000                  ; falling tetrominoe position on x
+  .equ T_Y, 0x1004                  ; falling tetrominoe position on y
+  .equ T_type, 0x1008               ; falling tetrominoe type
+  .equ T_orientation, 0x100C        ; falling tetrominoe orientation
+  .equ SCORE,  0x1010               ; score
+  .equ GSA, 0x1014                  ; Game State Array starting address
+  .equ SEVEN_SEGS, 0x1198           ; 7-segment display addresses
+  .equ LEDS, 0x2000                 ; LED address
+  .equ RANDOM_NUM, 0x2010           ; Random number generator address
+  .equ BUTTONS, 0x2030              ; Buttons addresses
+
+  ;; type enumeration
+  .equ C, 0x00
+  .equ B, 0x01
+  .equ T, 0x02
+  .equ S, 0x03
+  .equ L, 0x04
+
+  ;; GSA type
+  .equ NOTHING, 0x0
+  .equ PLACED, 0x1
+  .equ FALLING, 0x2
+
+  ;; orientation enumeration
+  .equ N, 0
+  .equ E, 1
+  .equ So, 2
+  .equ W, 3
+  .equ ORIENTATION_END, 4
+
+  ;; collision boundaries
+  .equ COL_X, 4
+  .equ COL_Y, 3
+
+  ;; Rotation enumeration
+  .equ CLOCKWISE, 0
+  .equ COUNTERCLOCKWISE, 1
+
+  ;; Button enumeration
+  .equ moveL, 0x01
+  .equ rotL, 0x02
+  .equ reset, 0x04
+  .equ rotR, 0x08
+  .equ moveR, 0x10
+  .equ moveD, 0x20
+
+  ;; Collision return ENUM
+  .equ W_COL, 0
+  .equ E_COL, 1
+  .equ So_COL, 2
+  .equ OVERLAP, 3
+  .equ NONE, 4
+
+  ;; start location
+  .equ START_X, 6
+  .equ START_Y, 1
+
+  ;; game rate of tetrominoe falling down (in terms of game loop iteration)
+  .equ RATE, 5
+
+  ;; standard limits
+  .equ X_LIMIT, 12
+  .equ Y_LIMIT, 8
+
+
+main:
+	addi sp, zero, 0x2000
+
+	addi t0, zero, S
+	stw t0, T_type(zero)
+	addi t0, zero, N
+	stw t0, T_orientation(zero)
+	addi t0, zero, 5
+	stw t0, T_X(zero)
+	addi t0, zero, 4
+	stw t0, T_Y(zero)
+
+	addi a0, zero, FALLING
+	call draw_tetromino
+
+	call draw_gsa
+	
+	break
+
+
+font_data:
+    .word 0xFC  ; 0
+    .word 0x60  ; 1
+    .word 0xDA  ; 2
+    .word 0xF2  ; 3
+    .word 0x66  ; 4
+    .word 0xB6  ; 5
+    .word 0xBE  ; 6
+    .word 0xE0  ; 7
+    .word 0xFE  ; 8
+    .word 0xF6  ; 9
+
+C_N_X:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0xFFFFFFFF
+
+C_N_Y:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0xFFFFFFFF
+
+C_E_X:
+  .word 0x01
+  .word 0x00
+  .word 0x01
+
+C_E_Y:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0xFFFFFFFF
+
+C_So_X:
+  .word 0x01
+  .word 0x00
+  .word 0x01
+
+C_So_Y:
+  .word 0x00
+  .word 0x01
+  .word 0x01
+
+C_W_X:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0xFFFFFFFF
+
+C_W_Y:
+  .word 0x00
+  .word 0x01
+  .word 0x01
+
+B_N_X:
+  .word 0xFFFFFFFF
+  .word 0x01
+  .word 0x02
+
+B_N_Y:
+  .word 0x00
+  .word 0x00
+  .word 0x00
+
+B_E_X:
+  .word 0x00
+  .word 0x00
+  .word 0x00
+
+B_E_Y:
+  .word 0xFFFFFFFF
+  .word 0x01
+  .word 0x02
+
+B_So_X:
+  .word 0xFFFFFFFE
+  .word 0xFFFFFFFF
+  .word 0x01
+
+B_So_Y:
+  .word 0x00
+  .word 0x00
+  .word 0x00
+
+B_W_X:
+  .word 0x00
+  .word 0x00
+  .word 0x00
+
+B_W_Y:
+  .word 0xFFFFFFFE
+  .word 0xFFFFFFFF
+  .word 0x01
+
+T_N_X:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+T_N_Y:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0x00
+
+T_E_X:
+  .word 0x00
+  .word 0x01
+  .word 0x00
+
+T_E_Y:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+T_So_X:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+T_So_Y:
+  .word 0x00
+  .word 0x01
+  .word 0x00
+
+T_W_X:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0x00
+
+T_W_Y:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+S_N_X:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+S_N_Y:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0xFFFFFFFF
+
+S_E_X:
+  .word 0x00
+  .word 0x01
+  .word 0x01
+
+S_E_Y:
+  .word 0xFFFFFFFF
+  .word 0x00
+  .word 0x01
+
+S_So_X:
+  .word 0x01
+  .word 0x00
+  .word 0xFFFFFFFF
+
+S_So_Y:
+  .word 0x00
+  .word 0x01
+  .word 0x01
+
+S_W_X:
+  .word 0x00
+  .word 0xFFFFFFFF
+  .word 0xFFFFFFFF
+
+S_W_Y:
+  .word 0x01
+  .word 0x00
+  .word 0xFFFFFFFF
+
+L_N_X:
+  .word 0xFFFFFFFF
+  .word 0x01
+  .word 0x01
+
+L_N_Y:
+  .word 0x00
+  .word 0x00
+  .word 0xFFFFFFFF
+
+L_E_X:
+  .word 0x00
+  .word 0x00
+  .word 0x01
+
+L_E_Y:
+  .word 0xFFFFFFFF
+  .word 0x01
+  .word 0x01
+
+L_So_X:
+  .word 0xFFFFFFFF
+  .word 0x01
+  .word 0xFFFFFFFF
+
+L_So_Y:
+  .word 0x00
+  .word 0x00
+  .word 0x01
+
+L_W_X:
+  .word 0x00
+  .word 0x00
+  .word 0xFFFFFFFF
+
+L_W_Y:
+  .word 0x01
+  .word 0xFFFFFFFF
+  .word 0xFFFFFFFF
+
+DRAW_Ax:                        ; address of shape arrays, x axis
+    .word C_N_X
+    .word C_E_X
+    .word C_So_X
+    .word C_W_X
+    .word B_N_X
+    .word B_E_X
+    .word B_So_X
+    .word B_W_X
+    .word T_N_X
+    .word T_E_X
+    .word T_So_X
+    .word T_W_X
+    .word S_N_X
+    .word S_E_X
+    .word S_So_X
+    .word S_W_X
+    .word L_N_X
+    .word L_E_X
+    .word L_So_X
+    .word L_W_X
+
+DRAW_Ay:                        ; address of shape arrays, y_axis
+    .word C_N_Y
+    .word C_E_Y
+    .word C_So_Y
+    .word C_W_Y
+    .word B_N_Y
+    .word B_E_Y
+    .word B_So_Y
+    .word B_W_Y
+    .word T_N_Y
+    .word T_E_Y
+    .word T_So_Y
+    .word T_W_Y
+    .word S_N_Y
+    .word S_E_Y
+    .word S_So_Y
+    .word S_W_Y
+    .word L_N_Y
+    .word L_E_Y
+    .word L_So_Y
+    .word L_W_Y
+
+
+
+
+## PARTIE 3 ##
+
+
+#Set all LEDS to 0
+; BEGIN:clear_leds
+clear_leds:
+	stw zero,LEDS(zero)
+	stw zero,LEDS+4(zero)
+	stw zero,LEDS+8(zero)
+	ret
+; END:clear_leds
+
+
+#Set one LED to 1
+;Args:
+	; -a0: the pixel’s x-coordinate
+	; -a1: the pixel’s y-coordinate
+
+; BEGIN:set_pixel
+set_pixel: 
+	;t0<- load concerned word at address LED+(a0/4)
+	ldw t0,LEDS(a0)
+
+	addi t2, zero,3; mask 00...011
+	and t2,t2,a0; t2<-x%4
+	slli t2,t2,3; t2<-8*(x%4)
+	add t2,t2,a1; t2<-8*(x%4)+y
+
+	; create a mask with single 1 at proper position  
+	addi t1,zero,1
+	sll t1, t1, t2
+
+	; set the proper bit of t0 to 1
+	or t0,t0,t1
+
+	; replace the word with its new updated version in the RAM
+	stw t0,LEDS(a0)
+	ret
+; END:set_pixel
+
+
+#add a delay of 0.2s
+; BEGIN:wait
+wait:
+
+	addi t0,zero,0 ;initialize t0 to 0:counter
+	addi t1,zero,1 ;initialize t1 to 2^20
+	slli t1, t1, 20
+
+	wait_loop:
+		beq t0,t1,wait_end ; while counter!=2^20
+		addi t0,t0,1 ;t0+=1
+		jmpi wait_loop
+
+	wait_end:
+		ret
+; END:wait
+
+
+
+
+## PARTIE 4 ##
+
+
+#This procedure gets as argument a location (x, y) and reports whether this location is inside the GSA or not
+;Args:
+	;a0: pixel’s x-coordinate
+	;a1: pixel’s y-coordinate
+;Return:
+	;v0: 1 if out of GSA,0 if in GSA
+
+; BEGIN:in_gsa
+in_gsa:
+
+	cmpgei t0, a0, X_LIMIT
+	cmpgei t1, a1, Y_LIMIT  
+	or t0,t0,t1
+	cmplt t1,a0,zero
+	or t0,t0,t1
+	cmplt t1,a1,zero
+	or v0,t0,t1
+	ret
+; END:in_gsa
+
+
+# returns the value p of the element at location (x, y) in the GSA
+;Args:
+	;a0: pixel’s x-coordinate
+	;a1: pixel’s y-coordinate
+;Return:
+	;v0: Element at location (x, y) in the GSA
+
+; BEGIN: get_gsa
+get_gsa:
+
+	slli t0,a0,3; t0<-8*x
+	add t0,t0,a1; t0<-8*x +y
+	slli t0, t0, 2; (t0<-8*x +y)*4
+
+	ldw v0, GSA(t0); get word
+	ret
+; END: get_gsa
+
+
+#sets the location (x, y) in the GSA to p
+;Args:
+	;a0: pixel’s x-coordinate
+	;a1: pixel’s y-coordinate
+	;a2: pixel’s value p
+
+; BEGIN: set_gsa
+set_gsa:
+
+	slli t0,a0,3 ; t0<-8*x
+	add t0,t0,a1 ; t0<-8*x +y
+	slli t0, t0, 2; (t0<-8*x +y)*4
+
+	stw a2, GSA(t0)
+	ret
+
+
+
+
+## Partie 5 ##
+
+
+; take what is in the GSA and make the LED display consistent with it
+
+; BEGIN: draw_gsa
+draw_gsa:
+
+	draw_gsa_init:
+		addi sp,sp,-12
+		stw ra, 0(sp)
+		stw s0, 4(sp);x
+		stw s1, 8(sp);y
+		call clear_leds
+		addi s0,zero,11;x<-11
+	draw_gsa_loop_x:
+		blt s0,zero,draw_gsa_loop_x_end;if x<0
+		
+		addi s1,zero,7;y<-7		
+		draw_gsa_loop_y:
+			blt s1,zero,draw_gsa_loop_y_end;if y<0
+			add a0,s0,zero;a0<-x :arg for get_gsa
+			add a1,s1,zero;a1<-y :arg for get_gsa
+			call get_gsa;gsa (a0,a1) value goes in v0
+			draw_gsa_if_nothing:
+				addi t0,zero,NOTHING
+				beq v0,t0,draw_gsa_if_nothing_end;if nothing, pixel value goes to 0
+				add a0,s0,zero;a0<-x :arg for set_pixel
+				add a1,s1,zero;a1<-y :arg for set_pixel
+				call set_pixel ;set pixel(a0,a1)
+			draw_gsa_if_nothing_end:
+
+				addi s1,s1,-1;y<-y-1
+				jmpi draw_gsa_loop_y
+		draw_gsa_loop_y_end:
+
+		addi s0,s0,-1;x<-x-1
+		jmpi draw_gsa_loop_x
+	draw_gsa_loop_x_end:
+		
+
+	draw_gsa_end:
+
+		ldw ra, 0(sp)
+		ldw s0, 4(sp)
+		ldw s1, 8(sp)
+		addi sp,sp,12
+		ret 
+; END: draw_gsa
+
+
+
+
+## PARTIE 6 ##
+
+
+#Read TX, TY, Torientation, Ttype from the RAM and set the corresponding GSA elements to the correct value
+;Args:
+	;a0: GSA valuep, such that p∈{NOTHING, PLACED, FALLING}
+
+; BEGIN: draw_tetromino
+draw_tetromino:
+	draw_tetromino_push: ;Push the elements in the stack
+		addi sp, sp, -28
+		stw ra, 24(sp)
+		stw s0, 20(sp)
+		stw s1, 16(sp)
+		stw s2, 12(sp)
+		stw s3, 8(sp)
+		stw s4, 4(sp)
+		stw s5, 0(sp)
+	draw_tetromino_initialise:
+		add s5, a0, zero ; s5= a0 (GSA value)
+	draw_tetromino_load: ;Load every useful elements from the memory
+		ldw s0, T_X(zero)
+		ldw s1, T_Y(zero)
+		ldw t0, T_type(zero)
+		ldw t1, T_orientation(zero)
+	draw_tetromino_load_shape_array:
+		slli t0, t0, 4  	;t0 = 16*types
+		slli t1, t1, 2  	;t1 = 4*orientation
+		add t0, t0, t1 		;t0 = 16*types + 4*orientation
+		ldw s2, DRAW_Ax(t0) ;s2 = x_offset_array_memory
+		ldw s3, DRAW_Ay(t0) ;s3 = y_offset_array_memory
+	draw_tetromino_set_corresponding_gsa:
+		draw_tetromino_set_anchor_point:
+			add a0, s0, zero
+			add a1, s1, zero
+			add a2, s5, zero
+			call set_gsa
+			addi s4, zero, 8 ; s4 = 8 (counter for the loop)
+		draw_tetromino_set_other_points:
+			blt s4, zero, draw_tetromino_fin
+			add t0, s2, s4
+			add t1, s3, s4
+			ldw a0, 0(t0)
+			add a0, a0, s0
+			ldw a1, 0(t1)
+			add a1, a1, s1
+			add a2, s5, zero
+			call set_gsa
+			addi s4, s4, -4
+			jmpi draw_tetromino_set_other_points
+	draw_tetromino_fin:
+		ldw s5, 0(sp)
+		ldw s4, 4(sp)
+		ldw s3, 8(sp)
+		ldw s2, 12(sp)
+		ldw s1, 16(sp)
+		ldw s0, 20(sp)
+		ldw ra, 24(sp)
+		addi sp, sp, 28
+		ret
+; END: draw_tetromino
